@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aiden Loyalty - VERIFIER</title>
+    
+    <!-- External Libraries (CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f4f5f7;
+            --card-bg: #ffffff;
+            --primary: #111111;
+            --accent: #2563eb;
+            --success: #10b981;
+            --error: #ef4444;
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius: 16px;
+            --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            font-family: var(--font-stack);
+            color: var(--text-main);
+            display: flex; flex-direction: column;
+            min-height: 100vh;
+            align-items: center;
+        }
+
+        .app-container {
+            width: 100%; max-width: 480px;
+            padding: 20px;
+            display: flex; flex-direction: column; gap: 24px;
+        }
+
+        header { text-align: center; margin-bottom: 20px; margin-top: 10px; }
+        h1 { font-size: 1.5rem; font-weight: 700; color: var(--primary); margin: 0; }
+        p.subtitle { font-size: 0.875rem; color: var(--text-sub); margin-top: 4px; font-weight: 500; }
+
+        .view-section { display: block; animation: fadeIn 0.3s ease; }
+
+        .input-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; color: var(--text-main); }
+        input[type="text"], input[type="password"] {
+            width: 100%; padding: 14px;
+            border: 1px solid #e5e7eb; border-radius: 12px;
+            font-size: 1rem; outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus { border-color: var(--accent); }
+
+        .btn {
+            width: 100%; padding: 14px;
+            border: none; border-radius: 12px;
+            font-size: 1rem; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: var(--primary); color: white; box-shadow: var(--shadow-lg); }
+        .btn-secondary { background: white; color: var(--text-main); border: 1px solid #e5e7eb; margin-top: 12px; }
+        .btn-disabled { background: #d1d5db; color: #9ca3af; cursor: not-allowed; box-shadow: none; }
+
+        #reader {
+            width: 100%; border-radius: 16px; overflow: hidden;
+            background: #000; margin-bottom: 16px; display: none;
+        }
+        .verification-result {
+            margin-top: 20px; padding: 20px;
+            border-radius: 16px; text-align: center;
+            display: none;
+        }
+        .status-icon { font-size: 3rem; margin-bottom: 10px; display: block; }
+        .status-title { font-weight: 700; font-size: 1.2rem; display: block; }
+        .status-desc { font-size: 0.9rem; margin-top: 5px; opacity: 0.8; display: block; }
+
+        .valid { background: #dcfce7; color: #166534; }
+        .invalid { background: #fee2e2; color: #991b1b; }
+        
+        /* --- PREMIUM VERIFICATION SUCCESS STYLE --- */
+        .verification-result.valid-premium {
+            background: linear-gradient(135deg, #10b981, #047857);
+            color: #ffffff;
+            box-shadow: 0 15px 35px -5px rgba(16, 185, 129, 0.5);
+            border: none;
+            transform: translateY(-2px);
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .verification-result.valid-premium .status-icon {
+            background: rgba(255, 255, 255, 0.2);
+            width: 72px; height: 72px;
+            line-height: 72px;
+            border-radius: 50%;
+            margin: 0 auto 16px auto;
+            font-size: 2.5rem;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .verification-result.valid-premium .status-title {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 8px;
+        }
+        .verification-result.valid-premium .status-desc {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #ffffff;
+            margin-top: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        /* ------------------------------------------ */
+
+        .manual-entry-box {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .input-row { display: flex; gap: 8px; }
+
+        #pin-check-section {
+            margin-top: 15px; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 15px;
+            display: none;
+        }
+        .pin-label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 5px; color: #166534; }
+
+        .biometric-wrapper {
+            position: relative; width: 100%; height: 280px;
+            background: #000; border-radius: 12px; overflow: hidden;
+            margin-bottom: 15px; display: none;
+        }
+        .biometric-video {
+            width: 100%; height: 100%; object-fit: cover;
+            position: absolute; top: 0; left: 0;
+            transform: scaleX(1); 
+        }
+        .biometric-video.user-mode { transform: scaleX(-1); }
+        
+        .biometric-canvas {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+        
+        #verify-status {
+            text-align: center; font-size: 0.9rem; font-weight: 600; margin-top: 5px; color: var(--accent);
+        }
+        
+        .h-actions { display: flex; gap: 10px; margin-top: 8px; }
+
+        /* New Loading Overlay */
+        #loading-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(255,255,255,0.8); z-index: 2000;
+            display: none; justify-content:center; align-items:center;
+            font-weight:bold; color: var(--primary);
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        #file-input { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="loading-overlay">Syncing Cloud Database...</div>
+
+<div class="app-container">
+    <header>
+        <h1>Aiden Class Loyalty</h1>
+        <p class="subtitle">Official Verification Terminal</p>
+    </header>
+
+    <!-- VERIFICATION SECTION (ONLY) -->
+    <div id="verify" class="view-section">
+        
+        <div id="scan-controls">
+            <button class="btn btn-primary" onclick="startScanner()">
+                Scan via Camera
+            </button>
+            <button class="btn btn-secondary" onclick="triggerFileUpload()">
+                Upload from Gallery
+            </button>
+            <input type="file" id="file-input" accept="image/*" onchange="handleFileUpload(this)">
+
+            <!-- Manual ID Verification -->
+            <div class="manual-entry-box">
+                <label>Or verify by Unique ID</label>
+                <div class="input-row">
+                    <input type="text" id="manualIdInput" placeholder="Enter Card ID (or first 8 chars)">
+                    <button class="btn btn-primary" style="width: auto; margin-top:0;" onclick="verifyManualInput()">Check</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="reader"></div>
+
+        <div id="result-display" class="verification-result">
+            <span class="status-icon" id="res-icon"></span>
+            <span class="status-title" id="res-title"></span>
+            <span class="status-desc" id="res-desc"></span>
+            
+            <!-- Biometric Verification UI -->
+            <div id="biometric-check-section" style="margin-top: 15px; border-top: 1px solid #ddd; padding-top:15px; display:none;">
+                <span class="pin-label">BIOMETRIC CHECK</span>
+                <div class="biometric-wrapper" id="verify-bio-wrapper" style="display:block;">
+                    <video id="verify-video" class="biometric-video" autoplay muted playsinline></video>
+                    <canvas id="verify-canvas" class="biometric-canvas"></canvas>
+                </div>
+                
+                <div class="h-actions" style="justify-content:center; margin-bottom:10px;">
+                    <button class="btn btn-secondary" style="width:auto;" onclick="switchCamera()">Switch Cam</button>
+                    <button class="btn btn-primary btn-disabled" id="btn-verify-face" style="width:auto;" onclick="executeBiometricMatch()" disabled>Verify Identity</button>
+                </div>
+
+                <div id="verify-status">Position face to enable verification...</div>
+                <button class="btn btn-secondary" id="btn-fallback-pin" style="display:none;" onclick="showPinFallback()">Use PIN Instead</button>
+            </div>
+
+            <!-- PIN Verification UI -->
+            <div id="pin-check-section">
+                <span class="pin-label">PIN BACKUP</span>
+                <div class="input-row">
+                    <input type="password" id="checkPinInput" placeholder="Ask Cust. for PIN" maxlength="4">
+                    <button class="btn btn-primary" style="width:auto; margin-top:0; padding:10px;" onclick="validatePin()">Verify</button>
+                </div>
+                <p id="pin-msg" style="font-size:0.85rem; margin-top:5px; font-weight:600;"></p>
+            </div>
+
+            <button class="btn btn-secondary" style="margin-top:15px; background:rgba(255,255,255,0.5); border:none;" onclick="resetVerifier()">Scan Another</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // CLOUD CONFIGURATION (Shared Source)
+    // ==========================================
+    const CLOUD_ID = "62d84d92-b00c-4056-ae77-63060ae0718f"; 
+    
+    // --- DATABASE LOGIC (READ ONLY) ---
+    async function getDB() {
+        try {
+            const response = await fetch(`https://getpantry.cloud/apiv1/pantry/${CLOUD_ID}/basket/aidenLoyaltyDB`);
+            if(!response.ok) return {}; 
+            const data = await response.json();
+            return data.cards || {};
+        } catch(e) {
+            console.error("Cloud Sync Error:", e);
+            // Fallback to local if offline (only what was cached)
+            return JSON.parse(localStorage.getItem('loyaltyDB_readOnly') || '{}');
+        }
+    }
+
+    // --- GLOBAL VARIABLES ---
+    let currentVerifiedId = null;
+    let modelsLoaded = false;
+    let verifyStream = null;
+    let tempVerifyDescriptor = null; 
+    let detectionRunning = false;
+    let currentFacingMode = 'environment'; 
+    let currentVerifyRecordDescriptor = null; 
+
+    // --- 1. INITIALIZATION ---
+    window.addEventListener('load', async () => {
+        try {
+            // Load Face API models for verification
+            const modelUrl = 'https://justadudewhohacks.github.io/face-api.js/models';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(modelUrl);
+            await faceapi.nets.faceLandmark68TinyNet.loadFromUri(modelUrl);
+            await faceapi.nets.faceRecognitionNet.loadFromUri(modelUrl);
+            modelsLoaded = true;
+            console.log("System Active & Synced");
+        } catch (e) {
+            console.error("Error loading security models.");
+        }
+    });
+
+    // --- 2. VERIFICATION LOGIC ---
+    
+    // Check ID against Cloud DB
+    async function verifyCardId(id, nameInQR) {
+        showLoading(true);
+        const db = await getDB();
+        // Cache for offline usage
+        localStorage.setItem('loyaltyDB_readOnly', JSON.stringify(db));
+        showLoading(false);
+        
+        const record = db[id];
+        if (!record) return { valid: false, reason: "Card ID not found in database." };
+        if (!record.active) return { valid: false, reason: "Card has been deactivated." };
+        if (nameInQR && record.name !== nameInQR) return { valid: false, reason: "Name mismatch (Potential Counterfeit)." };
+        
+        return { valid: true, data: record, id: id };
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
+    }
+
+    let html5QrcodeScanner = null;
+
+    function handleScanSuccess(decodedText) {
+        if(html5QrcodeScanner) {
+            html5QrcodeScanner.clear();
+            document.getElementById('reader').style.display = 'none';
+        }
+        try {
+            const data = JSON.parse(decodedText);
+            if(!data.id || !data.name) throw new Error("Invalid format");
+            
+            verifyCardId(data.id, data.name).then(result => {
+                showResult(result, data.name, data.id);
+            });
+        } catch (e) {
+            showResult({ valid: false, reason: "Invalid QR format." }, "Unknown");
+        }
+    }
+
+    function verifyManualInput() {
+        const inputId = document.getElementById('manualIdInput').value.trim();
+        if (!inputId) { alert("Please enter an ID."); return; }
+        
+        showLoading(true);
+        getDB().then(db => {
+            showLoading(false);
+            let foundId = Object.keys(db).find(id => id.startsWith(inputId));
+            if(foundId) {
+                const record = db[foundId];
+                if(record.active) {
+                    showResult({ valid: true, data: record, id: foundId }, record.name, foundId);
+                } else {
+                    showResult({ valid: false, reason: "Card deactivated." }, record.name);
+                }
+            } else {
+                showResult({ valid: false, reason: "ID not found." }, "Unknown");
+            }
+        });
+    }
+
+    function showResult(result, name, fullId) {
+        const display = document.getElementById('result-display');
+        const icon = document.getElementById('res-icon');
+        const title = document.getElementById('res-title');
+        const desc = document.getElementById('res-desc');
+        const ctrls = document.getElementById('scan-controls');
+        
+        document.getElementById('biometric-check-section').style.display = 'none';
+        document.getElementById('pin-check-section').style.display = 'none';
+        
+        ctrls.style.display = 'none';
+        display.style.display = 'block';
+        if(navigator.vibrate) navigator.vibrate(result.valid ? 50 : [50, 100, 50]);
+
+        if(result.valid) {
+            display.className = 'verification-result valid';
+            icon.innerHTML = '✅';
+            title.innerHTML = 'Valid Card';
+            desc.innerHTML = `Member: <b>${name}</b><br>Status: Active`;
+            currentVerifiedId = fullId; 
+            currentVerifyRecordDescriptor = result.data.faceDescriptor;
+            
+            // Automatically prompt for Biometric Check
+            startFaceTracking(result.data.faceDescriptor);
+        } else {
+            display.className = 'verification-result invalid';
+            icon.innerHTML = '❌';
+            title.innerHTML = 'Invalid / Fake';
+            desc.innerHTML = `Error: ${result.reason}`;
+        }
+    }
+
+    // --- 3. BIOMETRIC & PIN VERIFICATION ---
+
+    function switchCamera() {
+        currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+        detectionRunning = false;
+        
+        if(verifyStream) verifyStream.getTracks().forEach(t => t.stop());
+        setTimeout(() => {
+            if(currentVerifyRecordDescriptor) startFaceTracking(currentVerifyRecordDescriptor);
+        }, 200);
+    }
+
+    async function startFaceTracking(storedDescriptorArray) {
+        if(!storedDescriptorArray || storedDescriptorArray.length === 0) {
+            showPinFallback();
+            return;
+        }
+
+        const video = document.getElementById('verify-video');
+        document.getElementById('biometric-check-section').style.display = 'block';
+        document.getElementById('verify-status').innerText = "Detecting face...";
+        document.getElementById('verify-status').className = '';
+        document.getElementById('btn-fallback-pin').style.display = 'block';
+        document.getElementById('btn-verify-face').disabled = true; 
+        document.getElementById('btn-verify-face').classList.add('btn-disabled');
+
+        if(currentFacingMode === 'user') video.classList.add('user-mode');
+        else video.classList.remove('user-mode');
+
+        try {
+            verifyStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } } 
+            });
+            video.srcObject = verifyStream;
+            video.onplay = () => {
+                detectionRunning = true;
+                processTrackingFrame();
+            };
+        } catch(e) {
+            alert("Camera error. Defaulting to PIN.");
+            showPinFallback();
+        }
+    }
+
+    async function processTrackingFrame() {
+        if(!detectionRunning) return;
+        const video = document.getElementById('verify-video');
+        const canvas = document.getElementById('verify-canvas');
+        const verifyBtn = document.getElementById('btn-verify-face');
+        const status = document.getElementById('verify-status');
+
+        if(video.paused || video.ended) return;
+        if(canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+            faceapi.matchDimensions(canvas, { width: video.videoWidth, height: video.videoHeight });
+        }
+
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true).withFaceDescriptor();
+        
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (detection) {
+            const resizedDetections = faceapi.resizeResults(detection, { width: video.videoWidth, height: video.videoHeight });
+            const box = resizedDetections.detection.box;
+            new faceapi.draw.DrawBox(box, { label: 'Face Detected', boxColor: '#10b981' }).draw(canvas);
+            
+            tempVerifyDescriptor = detection.descriptor;
+            verifyBtn.disabled = false;
+            verifyBtn.classList.remove('btn-disabled');
+            status.innerText = "Face Tracked. Click Verify.";
+        } else {
+            tempVerifyDescriptor = null;
+            verifyBtn.disabled = true;
+            verifyBtn.classList.add('btn-disabled');
+            status.innerText = "Position face in camera...";
+        }
+        
+        requestAnimationFrame(processTrackingFrame);
+    }
+
+    function executeBiometricMatch() {
+        if(!tempVerifyDescriptor || !currentVerifyRecordDescriptor) return;
+
+        const storedDescriptor = new Float32Array(currentVerifyRecordDescriptor);
+        const faceMatcher = new faceapi.FaceMatcher(storedDescriptor, 0.55);
+        const match = faceMatcher.findBestMatch(tempVerifyDescriptor);
+        
+        const display = document.getElementById('result-display');
+        const icon = document.getElementById('res-icon');
+        const title = document.getElementById('res-title');
+        const desc = document.getElementById('res-desc');
+        
+        detectionRunning = false;
+        if(verifyStream) verifyStream.getTracks().forEach(track => track.stop());
+        verifyStream = null;
+        
+        document.getElementById('biometric-check-section').style.display = 'none'; 
+        document.getElementById('pin-check-section').style.display = 'none';
+
+        // Get Name from cached db or currentVerifiedId logic
+        getDB().then(db => {
+            const record = db[currentVerifiedId];
+            const name = record ? record.name : "Unknown";
+
+            if(match.label !== 'unknown') {
+                display.className = 'verification-result valid-premium';
+                icon.innerHTML = '✅';
+                title.innerHTML = 'Identity Verified';
+                desc.innerHTML = `Member: <b>${name}</b><br>Biometric Match: Passed`;
+            } else {
+                display.className = 'verification-result invalid';
+                icon.innerHTML = '❌';
+                title.innerHTML = 'Identity Mismatch';
+                desc.innerHTML = `Member: <b>${name}</b><br>Face does not match record.`;
+                if(navigator.vibrate) navigator.vibrate([100, 100, 100]);
+            }
+        });
+    }
+
+    function showPinFallback() {
+        if(verifyStream) verifyStream.getTracks().forEach(track => track.stop());
+        verifyStream = null;
+        detectionRunning = false;
+        document.getElementById('biometric-check-section').style.display = 'none';
+        document.getElementById('pin-check-section').style.display = 'block';
+    }
+
+    async function validatePin() {
+        const inputPin = document.getElementById('checkPinInput').value;
+        const msg = document.getElementById('pin-msg');
+        
+        const display = document.getElementById('result-display');
+        const icon = document.getElementById('res-icon');
+        const title = document.getElementById('res-title');
+        const desc = document.getElementById('res-desc');
+
+        if(!inputPin) { alert("Enter PIN"); return; }
+        
+        const db = await getDB();
+        const record = db[currentVerifiedId];
+        if(record && record.pin === inputPin) {
+            document.getElementById('biometric-check-section').style.display = 'none';
+            document.getElementById('pin-check-section').style.display = 'none';
+            
+            display.className = 'verification-result valid-premium';
+            icon.innerHTML = '✅';
+            title.innerHTML = 'Identity Verified';
+            desc.innerHTML = `Member: <b>${record.name}</b><br>Method: PIN Verified`;
+        } else {
+            msg.innerHTML = "❌ Wrong PIN";
+            msg.style.color = "#991b1b";
+            if(navigator.vibrate) navigator.vibrate([100, 100, 100]);
+        }
+    }
+
+    function resetVerifier() {
+        if(verifyStream) verifyStream.getTracks().forEach(t => t.stop());
+        detectionRunning = false;
+        document.getElementById('result-display').style.display = 'none';
+        document.getElementById('scan-controls').style.display = 'block';
+        document.getElementById('manualIdInput').value = '';
+        document.getElementById('checkPinInput').value = '';
+        currentVerifiedId = null;
+        const verifyBtnContainer = document.getElementById('btn-verify-face').parentElement;
+        if(verifyBtnContainer) verifyBtnContainer.style.display = 'flex';
+    }
+
+    function startScanner() {
+        document.getElementById('reader').style.display = 'block';
+        html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+        html5QrcodeScanner.render(handleScanSuccess, (err) => {});
+    }
+
+    function triggerFileUpload() { document.getElementById('file-input').click(); }
+    
+    function handleFileUpload(input) {
+        if (input.files.length === 0) return;
+        const html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.scanFile(input.files[0], true)
+        .then(decodedText => handleScanSuccess(decodedText))
+        .catch(err => showResult({ valid: false, reason: "No QR found in image." }, "Unknown"));
+    }
+</script>
+</body>
+</html>
